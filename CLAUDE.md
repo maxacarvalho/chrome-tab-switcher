@@ -41,6 +41,10 @@ Enter and click also commit immediately; Escape cancels. The commit-on-modifier-
 
 `getModifierKey()` must stay at the top level inside the IIFE, not nested inside another function — a prior regression nested it and triggered a ReferenceError.
 
+## Documented Solutions
+
+`docs/solutions/` — documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`). Relevant when implementing or debugging in documented areas.
+
 ## Conventions
 
 - Vanilla JS only, no bundler, no TypeScript, no dependencies. Keep it that way unless the user asks otherwise.
