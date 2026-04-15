@@ -9,16 +9,15 @@ A minimal Chrome extension that shows a floating tab switcher with thumbnail pre
 - Shows cached previews for tabs you have recently focused.
 - Falls back to direct tab switching on pages where Chrome does not allow content script injection.
 
-## Important shortcut limitation
+## Shortcut
 
-Chrome extensions cannot register `Control+Tab` as a command shortcut. Chrome's commands API does not support `Tab` as a command key, and browser-reserved shortcuts take priority.
+Default: `Ctrl+Q` (macOS uses the physical Control key via `MacCtrl+Q`, not Command).
 
-This extension therefore ships with:
+Rebind at `chrome://extensions/shortcuts`.
 
-- macOS forward: `Control + .`
-- macOS backward: `Control + Shift + .`
+Linux note: Chrome on Linux binds `Ctrl+Q` to Quit, so Linux users will want to rebind the extension shortcut to avoid the conflict. The shortcuts page flags the conflict.
 
-You can change shortcuts in `chrome://extensions/shortcuts`, but Chrome still will not let an extension bind the exact `Control+Tab` combination.
+Chrome extensions cannot register `Control+Tab` as a command shortcut — the commands API does not support `Tab` as a key, and browser-reserved shortcuts take priority.
 
 ## Load it in Chrome
 
@@ -31,9 +30,9 @@ You can change shortcuts in `chrome://extensions/shortcuts`, but Chrome still wi
 
 ## How to use it
 
-- Press `Control + .` to open the preview switcher.
-- Press `Tab`, `Shift + Tab`, or the arrow keys to move across the tab previews.
-- Press `Enter` or click a preview card to switch to that tab.
+- Press `Ctrl+Q` to open the preview switcher (opens on the next tab).
+- Keep `Ctrl` held; tap `Q` again or press `Arrow Right` / `Arrow Down` to advance; `Arrow Left` / `Arrow Up` to go back.
+- Release `Ctrl` to commit the current selection. `Enter` or a click on a preview card also commits.
 - Press `Escape` to dismiss without switching.
 
 ## Notes

@@ -18,19 +18,12 @@
     "default_title": "Open tab switcher preview"
   },
   "commands": {
-    "show-switcher-forward": {
+    "show-switcher": {
       "suggested_key": {
-        "default": "Ctrl+Period",
-        "mac": "MacCtrl+Period"
+        "default": "Ctrl+Q",
+        "mac": "MacCtrl+Q"
       },
-      "description": "Show the tab switcher and move forward"
-    },
-    "show-switcher-backward": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+Period",
-        "mac": "MacCtrl+Shift+Period"
-      },
-      "description": "Show the tab switcher and move backward"
+      "description": "Show the tab switcher"
     }
   },
   "content_scripts": [

@@ -20,7 +20,7 @@ if (!globalThis.__tabSwitcherPreviewInjected) {
     return false;
   });
 
-  function showSwitcher({ tabs, activeTabId, direction }) {
+  function showSwitcher({ tabs, activeTabId }) {
   const sortedTabs = Array.isArray(tabs) ? tabs : [];
 
   if (!sortedTabs.length) {
@@ -28,7 +28,8 @@ if (!globalThis.__tabSwitcherPreviewInjected) {
   }
 
   if (!state) {
-    state = createState(sortedTabs, activeTabId, direction);
+    state = createState(sortedTabs, activeTabId);
+    moveSelection("forward");
     render();
     bindEvents();
     focusSelectedCard();
@@ -37,12 +38,12 @@ if (!globalThis.__tabSwitcherPreviewInjected) {
 
   state.tabs = sortedTabs;
   state.activeTabId = activeTabId;
-  moveSelection(direction);
+  moveSelection("forward");
   render();
   focusSelectedCard();
   }
 
-  function createState(tabs, activeTabId, direction) {
+  function createState(tabs, activeTabId) {
   const selectedIndex = Math.max(
     0,
     tabs.findIndex((tab) => tab.id === activeTabId)
@@ -88,7 +89,7 @@ if (!globalThis.__tabSwitcherPreviewInjected) {
       return;
     }
 
-    if (event.key === "ArrowRight" || (event.key === "Tab" && !event.shiftKey)) {
+    if (event.key === "ArrowRight") {
       event.preventDefault();
       moveSelection("forward");
       render();
@@ -96,9 +97,17 @@ if (!globalThis.__tabSwitcherPreviewInjected) {
       return;
     }
 
-    if (event.key === "ArrowLeft" || (event.key === "Tab" && event.shiftKey)) {
+    if (event.key === "ArrowLeft") {
       event.preventDefault();
       moveSelection("backward");
+      render();
+      focusSelectedCard();
+      return;
+    }
+
+    if (event.key === "q" || event.key === "Q") {
+      event.preventDefault();
+      moveSelection("forward");
       render();
       focusSelectedCard();
       return;

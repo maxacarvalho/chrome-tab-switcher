@@ -34,8 +34,8 @@ Three source files, two execution contexts, message-passing between them:
 
 | File | Context | Responsibility |
 |------|---------|----------------|
-| `manifest.json` | — | MV3 manifest; permissions `tabs` + `scripting`; host `<all_urls>`; two commands (`Ctrl+Period`, `Ctrl+Shift+Period`; `MacCtrl+...` on Mac). |
-| `service-worker.js` | MV3 background module | Source of truth. Owns thumbnail cache `Map<tabId, {dataUrl, capturedAt}>`, capped at `MAX_THUMBNAILS = 20`, JPEG q=55 via `chrome.tabs.captureVisibleTab`. Captures on `tabs.onActivated` and `tabs.onUpdated(status=complete)`. Handles toolbar clicks + both commands, calls `openSwitcher({windowId, direction})`, posts `SHOW_SWITCHER` to the active tab's content script. |
+| `manifest.json` | — | MV3 manifest; permissions `tabs` + `scripting`; host `<all_urls>`; one command (`show-switcher`, default `Ctrl+Q`; `MacCtrl+Q` on Mac — the physical Control key, not Command). |
+| `service-worker.js` | MV3 background module | Source of truth. Owns thumbnail cache `Map<tabId, {dataUrl, capturedAt}>`, capped at `MAX_THUMBNAILS = 20`, JPEG q=55 via `chrome.tabs.captureVisibleTab`. Captures on `tabs.onActivated` and `tabs.onUpdated(status=complete)`. Handles toolbar clicks + the single command, calls `openSwitcher({windowId})`, posts `SHOW_SWITCHER` to the active tab's content script. |
 | `content-script.js` | Injected at `document_idle` on `<all_urls>` | Renders the floating picker under `ROOT_ID`. Owns local `state` (`tabs`, `activeTabId`, `selectedIndex`, `modifierKey`, `cleanup`). Handles keyboard navigation, sends `ACTIVATE_TAB` on commit. Responds to `PING_SWITCHER`. |
 
 ### Message protocol
@@ -50,8 +50,8 @@ Three source files, two execution contexts, message-passing between them:
 
 ### Interaction model (hold-release)
 
-1. User presses `Ctrl+Period` — picker opens on the next tab.
-2. While `Ctrl` stays held, each additional `Period` advances selection.
+1. User presses `Ctrl+Q` — picker opens on the next tab.
+2. While `Ctrl` stays held, each additional `Q` press (or arrow keys) advances selection; `ArrowLeft` / `ArrowUp` walk backward.
 3. Releasing `Ctrl` commits the current selection and closes the picker.
 
 The commit-on-release is implemented in the content script's `keyup` handler against `state.modifierKey` (constant `"Control"` — `MacCtrl` in the manifest maps to Control on Mac).
@@ -63,7 +63,7 @@ The commit-on-release is implemented in the content script's `keyup` handler aga
 - **Keep vanilla JS only.** No bundler, no TypeScript, no dependencies, unless the user explicitly asks.
 - **Do not hoist helpers out of the content script IIFE guard.** The `globalThis.__tabSwitcherPreviewInjected` guard means top-level `const`/`let` are scoped to it; hoisting loses the double-injection guard.
 - **Thumbnail capture silently swallows errors** (restricted pages, capture throttling). This is intentional; do not add user-facing error surfacing.
-- **Chrome's built-in `Ctrl+Tab` cannot be overridden by extensions.** Prior investigation confirmed this. Use the `Ctrl+Period` family instead.
+- **Chrome's built-in `Ctrl+Tab` cannot be overridden by extensions.** Prior investigation confirmed this. The extension uses `Ctrl+Q` instead; users can rebind at `chrome://extensions/shortcuts` (Linux users should — Chrome on Linux binds `Ctrl+Q` to Quit).
 
 ## Why This Matters
 
@@ -82,19 +82,19 @@ The extension has no test harness, no CI, no type checker — the codebase's onl
 
 1. Load the directory at `chrome://extensions` → "Load unpacked" (Developer mode on).
 2. After edits, click the reload icon on the extension card — content scripts only re-inject on navigation or via the worker's `chrome.scripting.executeScript` fallback.
-3. Trigger with `Ctrl+Period` / `Ctrl+Shift+Period` (Mac: `MacCtrl+...`) or the toolbar action.
+3. Trigger with `Ctrl+Q` (Mac: `MacCtrl+Q`, the physical Control key) or the toolbar action.
 4. Debug the service worker from the extension card's "service worker" link; debug the content script from the host page's DevTools.
 5. If keys don't fire, check `chrome://extensions/shortcuts` — the defaults conflict with other extensions often.
 
 ### Typical request dispatch
 
 ```
-User presses Ctrl+Period
-  → worker's commands.onCommand fires
-  → openSwitcher({windowId, direction: +1})
+User presses Ctrl+Q
+  → worker's commands.onCommand fires for "show-switcher"
+  → openSwitcher({windowId})
   → chrome.tabs.query({windowId}) + merge thumbnailCache
   → sendSwitcherMessage(activeTab.id, { type: 'SHOW_SWITCHER', tabs, ... })
-      ├─ success: content script renders picker, user holds Ctrl, advances with Period
+      ├─ success: content script renders picker, user holds Ctrl, advances with Q or arrows
       └─ failure: ensureSwitcherInjected → delay(60) → retry
            └─ if still failing: activateAdjacentTab fallback (restricted page)
 User releases Ctrl

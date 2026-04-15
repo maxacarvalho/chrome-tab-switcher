@@ -8,14 +8,11 @@ chrome.action.onClicked.addListener(async (tab) => {
     return;
   }
 
-  await openSwitcher({
-    windowId: tab.windowId,
-    direction: "forward"
-  });
+  await openSwitcher({ windowId: tab.windowId });
 });
 
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command !== "show-switcher-forward" && command !== "show-switcher-backward") {
+  if (command !== "show-switcher") {
     return;
   }
 
@@ -28,12 +25,7 @@ chrome.commands.onCommand.addListener(async (command) => {
     return;
   }
 
-  const direction = command === "show-switcher-backward" ? "backward" : "forward";
-
-  await openSwitcher({
-    windowId: activeTab.windowId,
-    direction
-  });
+  await openSwitcher({ windowId: activeTab.windowId });
 });
 
 chrome.tabs.onActivated.addListener(async ({ tabId, windowId }) => {
@@ -63,7 +55,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-async function openSwitcher({ windowId, direction }) {
+async function openSwitcher({ windowId }) {
   const [activeTab] = await chrome.tabs.query({
     active: true,
     windowId
@@ -78,7 +70,6 @@ async function openSwitcher({ windowId, direction }) {
   const tabs = await chrome.tabs.query({ windowId });
   const payload = {
     type: "SHOW_SWITCHER",
-    direction,
     tabs: tabs.map((tab) => serializeTab(tab)),
     activeTabId: activeTab.id
   };
@@ -86,7 +77,7 @@ async function openSwitcher({ windowId, direction }) {
   try {
     await sendSwitcherMessage(activeTab.id, payload);
   } catch (error) {
-    await activateAdjacentTab(tabs, activeTab.id, direction);
+    await activateAdjacentTab(tabs, activeTab.id);
   }
 }
 
@@ -117,7 +108,7 @@ async function sendSwitcherMessage(tabId, payload) {
   await chrome.tabs.sendMessage(tabId, payload);
 }
 
-async function activateAdjacentTab(tabs, activeTabId, direction) {
+async function activateAdjacentTab(tabs, activeTabId) {
   if (!tabs.length) {
     return;
   }
@@ -128,8 +119,7 @@ async function activateAdjacentTab(tabs, activeTabId, direction) {
     return;
   }
 
-  const step = direction === "backward" ? -1 : 1;
-  const nextIndex = (currentIndex + step + tabs.length) % tabs.length;
+  const nextIndex = (currentIndex + 1) % tabs.length;
   const nextTab = tabs[nextIndex];
 
   if (nextTab?.id) {
