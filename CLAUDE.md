@@ -22,7 +22,7 @@ The default command shortcuts conflict frequently — check `chrome://extensions
 Three files, two execution contexts, message-passing between them:
 
 - **`service-worker.js`** (MV3 background module) — the source of truth. Owns the thumbnail cache (`Map<tabId, {dataUrl, capturedAt}>`, capped at `MAX_THUMBNAILS = 20`, JPEG q=55 via `chrome.tabs.captureVisibleTab`). Captures previews opportunistically on `tabs.onActivated` and `tabs.onUpdated(status=complete)`. Handles toolbar clicks and the two registered commands, then calls `openSwitcher({windowId, direction})` which queries all tabs in the window, serializes them with cached thumbnails, and posts `SHOW_SWITCHER` to the active tab's content script.
-- **`content-script.js`** — injected at `document_idle` into all URLs and guarded by `globalThis.__tabSwitcherPreviewInjected` against double-injection. Renders the floating picker into a single DOM root (`ROOT_ID`), owns a local `state` object (`tabs`, `activeTabId`, `selectedIndex`, `modifierKey`), handles keyboard navigation, and sends `ACTIVATE_TAB` / `DISMISS_SWITCHER` back to the worker. Responds to `PING_SWITCHER` so the worker can detect whether re-injection is needed.
+- **`content-script.js`** — injected at `document_idle` into all URLs and guarded by `globalThis.__tabSwitcherPreviewInjected` against double-injection. Renders the floating picker into a single DOM root (`ROOT_ID`), owns a local `state` object (`tabs`, `activeTabId`, `selectedIndex`, `modifierKey`, `cleanup`), handles keyboard navigation, and sends `ACTIVATE_TAB` back to the worker on selection. Responds to `PING_SWITCHER` so the worker can detect whether re-injection is needed. Note: the worker has a `DISMISS_SWITCHER` handler but nothing currently sends it — a latent dead path, not a bug.
 - **`manifest.json`** — MV3, permissions `tabs` + `scripting`, host `<all_urls>`.
 
 ### Injection / message delivery
@@ -31,7 +31,7 @@ Three files, two execution contexts, message-passing between them:
 
 ### Modifier-key gotcha
 
-The Mac-style "hold modifier, release to commit" pattern was removed — cycling now advances on each shortcut press and commits on Enter/click. `detectModifierKey()` is still used to label UI but is not a top-level nested function (prior regression; keep it at module scope inside the IIFE guard).
+The Mac-style "hold modifier, release to commit" pattern was removed — cycling now advances on each shortcut press and commits on Enter/click. `detectModifierKey()` is still used to label UI. Keep it at the top level inside the IIFE guard, not nested inside another function — a prior regression nested it and triggered a ReferenceError.
 
 ## Conventions
 
