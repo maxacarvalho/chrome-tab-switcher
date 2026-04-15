@@ -29,9 +29,17 @@ Three files, two execution contexts, message-passing between them:
 
 `sendSwitcherMessage` first tries `chrome.tabs.sendMessage`; on failure it calls `ensureSwitcherInjected` (which pings, then `chrome.scripting.executeScript`s the file) and then **waits `delay(60)` before resending** — this sleep fixes a real race where the newly-injected listener isn't registered yet. Don't remove it without a replacement. If the whole flow throws, `openSwitcher` falls back to `activateAdjacentTab` so the keybinding still cycles tabs on restricted pages (chrome://, Web Store, etc.) where content scripts can't run.
 
-### Modifier-key gotcha
+### Interaction model (hold-release)
 
-The Mac-style "hold modifier, release to commit" pattern was removed — cycling now advances on each shortcut press and commits on Enter/click. `detectModifierKey()` is still used to label UI. Keep it at the top level inside the IIFE guard, not nested inside another function — a prior regression nested it and triggered a ReferenceError.
+The picker uses Mac-style Cmd+Tab semantics, intentionally:
+
+1. User presses `Ctrl+Period` (or the bound shortcut) — picker opens on the next tab.
+2. User keeps the modifier (`Ctrl`) held; each additional `Period` press advances the selection.
+3. Releasing the modifier commits the current selection and closes the picker.
+
+Enter and click also commit immediately; Escape cancels. The commit-on-modifier-release is implemented in the content script's `keyup` handler against `state.modifierKey` (constant `"Control"` — `MacCtrl` in the manifest maps to Control on Mac). Do not add generic "Control/Meta keydown" reassignments inside `onKeyDown`; a prior version did that and caused the active modifier to silently flip to Meta if the user tapped Cmd mid-session.
+
+`getModifierKey()` must stay at the top level inside the IIFE, not nested inside another function — a prior regression nested it and triggered a ReferenceError.
 
 ## Conventions
 

@@ -52,7 +52,7 @@ if (!globalThis.__tabSwitcherPreviewInjected) {
     tabs,
     activeTabId,
     selectedIndex,
-    modifierKey: detectModifierKey(),
+    modifierKey: getModifierKey(),
     cleanup: []
   };
   }
@@ -73,11 +73,6 @@ if (!globalThis.__tabSwitcherPreviewInjected) {
   function bindEvents() {
   const onKeyDown = (event) => {
     if (!state) {
-      return;
-    }
-
-    if (event.key === "Control" || event.key === "Meta") {
-      state.modifierKey = event.key;
       return;
     }
 
@@ -172,17 +167,26 @@ if (!globalThis.__tabSwitcherPreviewInjected) {
   }
 
   let root = document.getElementById(ROOT_ID);
+  const columns = getColumnCount(state.tabs.length);
+  const cards = state.tabs
+    .map((tab, index) => renderCard(tab, index === state.selectedIndex))
+    .join("");
+
+  if (root) {
+    const grid = root.querySelector(".tsp-grid");
+    if (grid) {
+      grid.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+      grid.innerHTML = cards;
+      bindCardClicks(root);
+      return;
+    }
+  }
 
   if (!root) {
     root = document.createElement("div");
     root.id = ROOT_ID;
     document.documentElement.appendChild(root);
   }
-
-  const columns = getColumnCount(state.tabs.length);
-  const cards = state.tabs
-    .map((tab, index) => renderCard(tab, index === state.selectedIndex))
-    .join("");
 
   root.innerHTML = `
     <style>
@@ -220,7 +224,6 @@ if (!globalThis.__tabSwitcherPreviewInjected) {
 
       #${ROOT_ID} .tsp-grid {
         display: grid;
-        grid-template-columns: repeat(${columns}, minmax(0, 1fr));
         gap: 10px;
       }
 
@@ -343,11 +346,15 @@ if (!globalThis.__tabSwitcherPreviewInjected) {
         }
       }
     </style>
-    <div class="tsp-shell" role="dialog" aria-label="Tab switcher preview">
-      <div class="tsp-grid">${cards}</div>
+    <div class="tsp-shell" role="dialog" aria-modal="true" aria-label="Tab switcher preview">
+      <div class="tsp-grid" style="grid-template-columns: repeat(${columns}, minmax(0, 1fr));">${cards}</div>
     </div>
   `;
 
+  bindCardClicks(root);
+  }
+
+  function bindCardClicks(root) {
   root.querySelectorAll("[data-tab-id]").forEach((node) => {
     node.addEventListener("click", () => {
       if (!state) {
@@ -382,10 +389,10 @@ if (!globalThis.__tabSwitcherPreviewInjected) {
   function renderCard(tab, isSelected) {
   const title = escapeHtml(tab.title || "Untitled tab");
   const previewMarkup = tab.previewDataUrl
-    ? `<img alt="" src="${tab.previewDataUrl}">`
+    ? `<img alt="" src="${escapeHtml(tab.previewDataUrl)}">`
     : `<div class="tsp-empty">${escapeHtml(getInitials(tab.title, tab.url))}</div>`;
   const faviconMarkup = tab.favIconUrl
-    ? `<img class="tsp-favicon" alt="" src="${tab.favIconUrl}">`
+    ? `<img class="tsp-favicon" alt="" src="${escapeHtml(tab.favIconUrl)}">`
     : `<div class="tsp-favicon is-fallback">${escapeHtml(getInitials(tab.title, tab.url, 1))}</div>`;
   const selectedClass = isSelected ? " is-selected" : "";
 
@@ -412,13 +419,23 @@ if (!globalThis.__tabSwitcherPreviewInjected) {
   return 5;
   }
 
-  function detectModifierKey() {
+  function getModifierKey() {
   return "Control";
   }
 
   function getInitials(title, url, maxChars = 2) {
-  const source = (title || url || "Tab").trim();
-  const words = source.split(/\s+/).filter(Boolean);
+  let source = (title || "").trim();
+  if (!source && url) {
+    try {
+      source = new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      source = url;
+    }
+  }
+  if (!source) {
+    source = "Tab";
+  }
+  const words = source.split(/[\s.\-_]+/).filter(Boolean);
 
   if (!words.length) {
     return "T";

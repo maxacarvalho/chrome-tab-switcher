@@ -1,9 +1,7 @@
 const thumbnailCache = new Map();
 const MAX_THUMBNAILS = 20;
-
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.action.setBadgeText({ text: "" });
-});
+const CAPTURE_MIN_INTERVAL_MS = 550;
+const lastCaptureByWindow = new Map();
 
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab.windowId) {
@@ -56,13 +54,10 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "ACTIVATE_TAB") {
-    activateTab(message.tabId, message.windowId).then(() => sendResponse({ ok: true }));
+    activateTab(message.tabId, message.windowId)
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: String(error) }));
     return true;
-  }
-
-  if (message?.type === "DISMISS_SWITCHER") {
-    sendResponse({ ok: true });
-    return false;
   }
 
   return false;
@@ -166,6 +161,13 @@ async function captureWindowPreview(windowId, tabId) {
   if (!windowId || !tabId) {
     return;
   }
+
+  const now = Date.now();
+  const last = lastCaptureByWindow.get(windowId) || 0;
+  if (now - last < CAPTURE_MIN_INTERVAL_MS) {
+    return;
+  }
+  lastCaptureByWindow.set(windowId, now);
 
   try {
     const dataUrl = await chrome.tabs.captureVisibleTab(windowId, {
