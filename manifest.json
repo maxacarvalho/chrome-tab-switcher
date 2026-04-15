@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "Chrome Tab Switcher Preview",
+  "version": "0.1.0",
+  "description": "Switch between tabs with a floating preview picker.",
+  "permissions": [
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Open tab switcher preview"
+  },
+  "commands": {
+    "show-switcher-forward": {
+      "suggested_key": {
+        "default": "Ctrl+Period",
+        "mac": "MacCtrl+Period"
+      },
+      "description": "Show the tab switcher and move forward"
+    },
+    "show-switcher-backward": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Period",
+        "mac": "MacCtrl+Shift+Period"
+      },
+      "description": "Show the tab switcher and move backward"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content-script.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

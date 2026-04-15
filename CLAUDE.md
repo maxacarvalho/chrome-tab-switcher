@@ -1,0 +1,40 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project
+
+Chrome Tab Switcher Preview — an unpacked Manifest V3 extension that shows a floating tab picker with thumbnail previews.
+
+## Loading & testing
+
+No build step, no package manager, no tests. Iteration loop:
+
+1. Load the directory at `chrome://extensions` → "Load unpacked" (enable Developer mode).
+2. After edits, click the reload icon on the extension card — content scripts only re-inject on navigation or via the service worker's `chrome.scripting.executeScript` fallback.
+3. Trigger with `Ctrl+Period` / `Ctrl+Shift+Period` (Mac: `MacCtrl+...`) or the toolbar action.
+4. Debug the service worker from the extension card's "service worker" link; debug the content script from the host page's DevTools.
+
+The default command shortcuts conflict frequently — check `chrome://extensions/shortcuts` if keys don't fire. Note: Chrome's built-in `Ctrl+Tab` cannot be overridden by extensions (see prior investigation).
+
+## Architecture
+
+Three files, two execution contexts, message-passing between them:
+
+- **`service-worker.js`** (MV3 background module) — the source of truth. Owns the thumbnail cache (`Map<tabId, {dataUrl, capturedAt}>`, capped at `MAX_THUMBNAILS = 20`, JPEG q=55 via `chrome.tabs.captureVisibleTab`). Captures previews opportunistically on `tabs.onActivated` and `tabs.onUpdated(status=complete)`. Handles toolbar clicks and the two registered commands, then calls `openSwitcher({windowId, direction})` which queries all tabs in the window, serializes them with cached thumbnails, and posts `SHOW_SWITCHER` to the active tab's content script.
+- **`content-script.js`** — injected at `document_idle` into all URLs and guarded by `globalThis.__tabSwitcherPreviewInjected` against double-injection. Renders the floating picker into a single DOM root (`ROOT_ID`), owns a local `state` object (`tabs`, `activeTabId`, `selectedIndex`, `modifierKey`), handles keyboard navigation, and sends `ACTIVATE_TAB` / `DISMISS_SWITCHER` back to the worker. Responds to `PING_SWITCHER` so the worker can detect whether re-injection is needed.
+- **`manifest.json`** — MV3, permissions `tabs` + `scripting`, host `<all_urls>`.
+
+### Injection / message delivery
+
+`sendSwitcherMessage` first tries `chrome.tabs.sendMessage`; on failure it calls `ensureSwitcherInjected` (which pings, then `chrome.scripting.executeScript`s the file) and then **waits `delay(60)` before resending** — this sleep fixes a real race where the newly-injected listener isn't registered yet. Don't remove it without a replacement. If the whole flow throws, `openSwitcher` falls back to `activateAdjacentTab` so the keybinding still cycles tabs on restricted pages (chrome://, Web Store, etc.) where content scripts can't run.
+
+### Modifier-key gotcha
+
+The Mac-style "hold modifier, release to commit" pattern was removed — cycling now advances on each shortcut press and commits on Enter/click. `detectModifierKey()` is still used to label UI but is not a top-level nested function (prior regression; keep it at module scope inside the IIFE guard).
+
+## Conventions
+
+- Vanilla JS only, no bundler, no TypeScript, no dependencies. Keep it that way unless the user asks otherwise.
+- The content script's IIFE guard means top-level `const`/`let` are scoped — don't hoist helpers out of it.
+- Thumbnail capture silently swallows errors (restricted pages, capture throttling) — this is intentional; don't add user-facing error surfacing.
